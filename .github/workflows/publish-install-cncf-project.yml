@@ -64,9 +64,9 @@ jobs:
           versioned="ghcr.io/${owner_lc}/${SKILL}:${VERSION}"
           latest="ghcr.io/${owner_lc}/${SKILL}:latest"
           echo "Pushing $versioned"
-          skills-oci push "$versioned" "./${SKILL}"
+          skills-oci push --plain "$versioned" "./${SKILL}"
           echo "Pushing $latest"
-          skills-oci push "$latest" "./${SKILL}"
+          skills-oci push --plain "$latest" "./${SKILL}"
 
       - name: Bump VERSION
         id: bump
