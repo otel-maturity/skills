@@ -1,0 +1,107 @@
+name: Publish install-cncf-project
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'install-cncf-project/**'
+      - '.github/workflows/publish-install-cncf-project.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  SKILL: install-cncf-project
+  SKILLS_OCI_VERSION: v0.0.11
+
+concurrency:
+  group: publish-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read VERSION
+        id: version
+        run: |
+          version_file="${SKILL}/VERSION"
+          if [ ! -f "$version_file" ]; then
+            echo "::error::Missing $version_file"
+            exit 1
+          fi
+          version=$(tr -d '[:space:]' < "$version_file")
+          if [ -z "$version" ]; then
+            echo "::error::$version_file is empty"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install skills-oci
+        run: |
+          curl -fsSL -o /tmp/skills-oci \
+            "https://github.com/salaboy/skills-oci/releases/download/${SKILLS_OCI_VERSION}/skills-oci-linux-amd64"
+          sudo install -m 0755 /tmp/skills-oci /usr/local/bin/skills-oci
+          skills-oci --help >/dev/null
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push skill to GHCR
+        env:
+          OWNER: ${{ github.repository_owner }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          owner_lc=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          versioned="ghcr.io/${owner_lc}/${SKILL}:${VERSION}"
+          latest="ghcr.io/${owner_lc}/${SKILL}:latest"
+          echo "Pushing $versioned"
+          skills-oci push "$versioned" "./${SKILL}"
+          echo "Pushing $latest"
+          skills-oci push "$latest" "./${SKILL}"
+
+      - name: Bump VERSION
+        id: bump
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          IFS=. read -r major minor patch <<< "$VERSION"
+          if ! [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ && "$patch" =~ ^[0-9]+$ ]]; then
+            echo "::error::VERSION '$VERSION' is not in MAJOR.MINOR.PATCH format"
+            exit 1
+          fi
+          new_version="${major}.${minor}.$((patch + 1))"
+          echo "$new_version" > "${SKILL}/VERSION"
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+          echo "Bumped ${SKILL} VERSION: $VERSION -> $new_version"
+
+      - name: Commit and push bumped VERSION
+        env:
+          PUBLISHED: ${{ steps.version.outputs.version }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${SKILL}/VERSION"
+          if git diff --cached --quiet; then
+            echo "No VERSION change to commit"
+            exit 0
+          fi
+          git commit -m "chore(${SKILL}): bump VERSION to ${NEW_VERSION} after publishing ${PUBLISHED}"
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push failed (attempt ${attempt}); rebasing on origin/${GITHUB_REF_NAME}"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+          done
+          echo "::error::Failed to push bumped VERSION after 3 attempts"
+          exit 1
