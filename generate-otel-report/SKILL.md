@@ -35,6 +35,7 @@ Read `.otel-eval/<project-name>/EVALUATION.md` to extract:
 - Strengths, areas for improvement, notable observations
 - Per-dimension evidence, checklist assessments, and rationale
 - Telemetry overview (signals observed, resource attributes)
+- Skill `evaluate-otel-maturity` version used to create the `EVALUATION.md` file
 
 ### Step 2: Generate the HTML report
 
