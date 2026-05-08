@@ -38,13 +38,20 @@ Read `.otel-eval/<project-name>/EVALUATION.md` to extract:
 
 ### Step 2: Generate the HTML report
 
-Write the report to `.otel-eval/<project-name>/report.html`.
+Write the report to `.otel-eval/<project-name>/report.html` using the `assets/report-template.html` as a guide to create the report.
 
 The report must be:
 - **Self-contained** — single HTML file, no external dependencies except CDN links for Chart.js
 - **Readable** — clean typography, good use of whitespace, professional appearance
 - **Constructive** — frame findings as guidance, not criticism. Use encouraging language.
 - **Specific** — include actual attribute names, metric names, span names from the evaluation
+
+
+### Step 3: Fill Project Card Template
+
+Look at the content of the `assets/PROJECT-CARD-TEMPLATE.html` and fill the details with the project information.
+
+Write a `.otel-eval/<project-name>/project-card.html` file with the project card template structure filled with the details of the project that we are evaluating. 
 
 ### Report structure
 
