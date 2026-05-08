@@ -15,8 +15,6 @@ permissions:
 env:
   SKILL: generate-otel-report
   SKILLS_OCI_VERSION: 0.0.11
-  # Tap commit that ships SKILLS_OCI_VERSION above. Bump together when upgrading.
-  SKILLS_OCI_TAP_SHA: 1091ca32da5a0c00e62d33dc9252051fc096739a
 
 concurrency:
   group: publish-${{ github.workflow }}
@@ -69,8 +67,7 @@ jobs:
 
       - name: Install skills-oci
         run: |
-          formula_url="https://raw.githubusercontent.com/salaboy/homebrew-tap/${SKILLS_OCI_TAP_SHA}/Formula/skills-oci.rb"
-          brew install --formula "$formula_url"
+          brew install salaboy/tap/skills-oci
           installed=$(brew list --versions skills-oci | awk '{print $2}')
           if [ "$installed" != "$SKILLS_OCI_VERSION" ]; then
             echo "::error::Installed skills-oci $installed does not match pinned $SKILLS_OCI_VERSION"
