@@ -43,6 +43,27 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Stamp SKILL.md frontmatter with version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          skill_file="${SKILL}/SKILL.md"
+          if [ ! -f "$skill_file" ]; then
+            echo "::error::Missing $skill_file"
+            exit 1
+          fi
+          if ! grep -q '^version:' "$skill_file"; then
+            echo "::error::$skill_file frontmatter is missing 'version:' field"
+            exit 1
+          fi
+          sed -i -E "s/^version: .*/version: ${VERSION}/" "$skill_file"
+          stamped=$(grep '^version:' "$skill_file" | head -1)
+          if [ "$stamped" != "version: ${VERSION}" ]; then
+            echo "::error::Failed to stamp version into $skill_file (got: $stamped)"
+            exit 1
+          fi
+          echo "Stamped ${skill_file} -> ${stamped}"
+
       - name: Install skills-oci
         run: |
           formula_url="https://raw.githubusercontent.com/salaboy/homebrew-tap/${SKILLS_OCI_TAP_SHA}/Formula/skills-oci.rb"
@@ -107,7 +128,7 @@ jobs:
               exit 0
             fi
             echo "Push failed (attempt ${attempt}); rebasing on origin/${GITHUB_REF_NAME}"
-            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
           done
           echo "::error::Failed to push bumped VERSION after 3 attempts"
           exit 1

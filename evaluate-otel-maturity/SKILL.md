@@ -1,5 +1,6 @@
 ---
 name: evaluate-otel-maturity
+version: 0.0.0-dev
 description: Evaluate a CNCF project's OpenTelemetry support maturity by inspecting telemetry data, documentation, and source code. Produces a structured per-dimension assessment using the OpenTelemetry Support Maturity Model. Use after install-cncf-project has telemetry flowing.
 argument-hint: "<project-name>"
 allowed-tools:
@@ -35,6 +36,10 @@ Research notes from installation are in `.otel-eval/<project-name>/RESEARCH.md`.
 ## Required argument
 
 The user provides the `<project-name>` to evaluate.
+
+## Skill version stamping
+
+Read the `version:` field from this file's own YAML frontmatter and use that exact string wherever this skill writes the **Skill version** field below. The CI workflow rewrites this field to the published version before packaging the OCI artifact, so at runtime it reflects the version users actually pulled.
 
 ## Before you start
 
@@ -166,6 +171,7 @@ Write the evaluation to `.otel-eval/<project-name>/EVALUATION.md` with this stru
 - **Evaluation date**: <date>
 - **Cluster**: otel-eval-<project-name>
 - **Maturity model version**: OpenTelemetry Support Maturity Model for CNCF Projects (draft)
+- **Skill version**: evaluate-otel-maturity v<version-from-frontmatter>
 
 ## Summary
 
