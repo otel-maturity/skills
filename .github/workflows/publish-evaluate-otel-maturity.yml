@@ -64,6 +64,9 @@ jobs:
           fi
           echo "Stamped ${skill_file} -> ${stamped}"
 
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
       - name: Install skills-oci
         run: |
           formula_url="https://raw.githubusercontent.com/salaboy/homebrew-tap/${SKILLS_OCI_TAP_SHA}/Formula/skills-oci.rb"
