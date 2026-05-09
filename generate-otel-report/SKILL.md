@@ -39,7 +39,13 @@ Read `.otel-eval/<project-name>/EVALUATION.md` to extract:
 
 ### Step 2: Generate the HTML report
 
-Write the report to `.otel-eval/<project-name>/report.html` using the `assets/report-template.html` as a guide to create the report.
+**Do not emit the entire HTML file in a single `Write` call.** The template is large (~30KB) and a single tool call risks hitting the model's output token limit, causing a truncated or missing report. Instead, copy the template into place and fill the placeholders with `Edit`:
+
+1. Copy the template to the output path:
+   - `cp assets/report-template.html .otel-eval/<project-name>/report.html`
+2. Replace each `{{...}}` placeholder using `Edit` with `replace_all: true` (most placeholders appear multiple times). The full list of placeholders is in the template's comment block (search for `TEMPLATE VARIABLES`).
+3. For the per-dimension narrative blocks (multiple paragraphs of "what we observed", "what's working well", "opportunities", "examples"), use targeted `Edit` calls — one per block. Keep each block focused; do not rewrite the surrounding HTML structure.
+4. After all replacements, verify with `grep '{{' .otel-eval/<project-name>/report.html` — there should be no remaining placeholders. If any remain, fix them.
 
 The report must be:
 - **Self-contained** — single HTML file, no external dependencies except CDN links for Chart.js
@@ -50,9 +56,11 @@ The report must be:
 
 ### Step 3: Fill Project Card Template
 
-Look at the content of the `assets/PROJECT-CARD-TEMPLATE.html` and fill the details with the project information.
+Apply the same copy-then-Edit pattern for the project card:
 
-Write a `.otel-eval/<project-name>/project-card.html` file with the project card template structure filled with the details of the project that we are evaluating. 
+1. `cp assets/PROJECT-CARD-TEMPLATE.html .otel-eval/<project-name>/project-card.html`
+2. Use `Edit` with `replace_all: true` to fill the project-card placeholders.
+3. Verify no `{{...}}` placeholders remain.
 
 ### Report structure
 
