@@ -31,6 +31,7 @@ Read the `version:` field from this file's own YAML frontmatter. Embed that exac
 
 Read `.otel-eval/<project-name>/EVALUATION.md` to extract:
 - Project name, version, evaluation date
+- **Evaluation run version** (the `Evaluation run version` field, e.g. `v1`)
 - The 7 dimension scores (0-3) and their one-line summaries
 - Strengths, areas for improvement, notable observations
 - Per-dimension evidence, checklist assessments, and rationale

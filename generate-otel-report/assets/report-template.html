@@ -499,6 +499,7 @@
     {{PROJECT_REPO_LABEL}}  — e.g. "github.com/tektoncd/pipeline"
     {{EVAL_NOTES}}          — e.g. "Telemetry collected in kind cluster with OTel Collector file exporter"
     {{SKILL_VERSION}}       — e.g. "evaluate-otel-maturity v0.0.2"
+    {{EVAL_RUN_VERSION}}    — e.g. "v1"
 
   DIMENSION SCORES (0–3 per dimension):
     {{SCORE_INTEGRATION}}   — Integration Surface
@@ -523,6 +524,7 @@
         <div class="header-meta">
             <span><span class="label">Version</span><strong>{{PROJECT_VERSION}}</strong></span>
             <span><span class="label">Evaluated</span><strong>{{EVAL_DATE}}</strong></span>
+            <span><span class="label">Run</span><strong>{{EVAL_RUN_VERSION}}</strong></span>
             <span><span class="label">Model</span><strong>OTel Support Maturity (draft)</strong></span>
             <span><span class="label">Skill</span><strong>{{SKILL_VERSION}}</strong></span>
         </div>
