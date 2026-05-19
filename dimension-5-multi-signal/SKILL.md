@@ -1,6 +1,6 @@
 ---
 name: dimension-5-multi-signal
-version: 0.0.1-dev
+version: 0.0.1
 description: Evaluate Dimension 5 (Multi-Signal Observability) of the OTel Support Maturity Model. Assesses whether traces, metrics, and logs are all first-class signals, and whether they are correlated to form a coherent investigative workflow.
 argument-hint: "<project-name> <version>"
 allowed-tools:

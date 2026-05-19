@@ -1,6 +1,6 @@
 ---
 name: dimension-6-audience-signal-quality
-version: 0.0.1-dev
+version: 0.0.1
 description: Evaluate Dimension 6 (Audience & Signal Quality) of the OTel Support Maturity Model. Assesses whether telemetry is designed for operators and users (logical operations, low noise, production-ready defaults) vs being maintainer-centric and verbose.
 argument-hint: "<project-name> <version>"
 allowed-tools:

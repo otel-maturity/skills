@@ -1,6 +1,6 @@
 ---
 name: dimension-4-trace-modeling
-version: 0.0.1-dev
+version: 0.0.1
 description: Evaluate Dimension 4 (Trace Modeling & Context Propagation) of the OTel Support Maturity Model. Assesses how traces are structured, whether parent-child relationships are intentional, and whether W3C Trace Context propagates correctly through synchronous and asynchronous paths.
 argument-hint: "<project-name> <version>"
 allowed-tools:

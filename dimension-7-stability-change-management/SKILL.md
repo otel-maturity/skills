@@ -1,6 +1,6 @@
 ---
 name: dimension-7-stability-change-management
-version: 0.0.1-dev
+version: 0.0.1
 description: Evaluate Dimension 7 (Stability & Change Management) of the OTel Support Maturity Model. Assesses whether telemetry is treated as a stable public contract — whether changes are documented, communicated, and governed so users can build long-lived workflows on top of telemetry.
 argument-hint: "<project-name> <version>"
 allowed-tools:

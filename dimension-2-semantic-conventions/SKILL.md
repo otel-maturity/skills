@@ -1,6 +1,6 @@
 ---
 name: dimension-2-semantic-conventions
-version: 0.0.1-dev
+version: 0.0.1
 description: Evaluate Dimension 2 (Semantic Conventions) of the OTel Support Maturity Model. Assesses how consistently telemetry attribute names and meanings align with OpenTelemetry semantic conventions across traces, metrics, and logs.
 argument-hint: "<project-name> <version>"
 allowed-tools:

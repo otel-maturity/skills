@@ -1,6 +1,6 @@
 ---
 name: dimension-1-integration-surface
-version: 0.0.1-dev
+version: 0.0.1
 description: Evaluate Dimension 1 (Integration Surface) of the OTel Support Maturity Model. Assesses how the project exposes telemetry to users and how well it integrates into existing OpenTelemetry pipelines without requiring adapters, sidecars, or legacy exporters.
 argument-hint: "<project-name> <version>"
 allowed-tools:

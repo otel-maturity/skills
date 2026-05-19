@@ -1,6 +1,6 @@
 ---
 name: dimension-3-resource-attributes
-version: 0.0.1-dev
+version: 0.0.1
 description: Evaluate Dimension 3 (Resource Attributes & Configuration) of the OTel Support Maturity Model. Assesses how the project expresses service identity across signals and whether standard OTEL_* environment variables are respected.
 argument-hint: "<project-name> <version>"
 allowed-tools:
