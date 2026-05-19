@@ -1,0 +1,134 @@
+name: Publish track-project-progress
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'track-project-progress/**'
+      - '.github/workflows/publish-track-project-progress.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  SKILL: track-project-progress
+  SKILLS_OCI_VERSION: 0.0.11
+
+concurrency:
+  group: publish-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read VERSION
+        id: version
+        run: |
+          version_file="${SKILL}/VERSION"
+          if [ ! -f "$version_file" ]; then
+            echo "::error::Missing $version_file"
+            exit 1
+          fi
+          version=$(tr -d '[:space:]' < "$version_file")
+          if [ -z "$version" ]; then
+            echo "::error::$version_file is empty"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp SKILL.md frontmatter with version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          skill_file="${SKILL}/SKILL.md"
+          if [ ! -f "$skill_file" ]; then
+            echo "::error::Missing $skill_file"
+            exit 1
+          fi
+          if ! grep -q '^version:' "$skill_file"; then
+            echo "::error::$skill_file frontmatter is missing 'version:' field"
+            exit 1
+          fi
+          sed -i -E "s/^version: .*/version: ${VERSION}/" "$skill_file"
+          stamped=$(grep '^version:' "$skill_file" | head -1)
+          if [ "$stamped" != "version: ${VERSION}" ]; then
+            echo "::error::Failed to stamp version into $skill_file (got: $stamped)"
+            exit 1
+          fi
+          echo "Stamped ${skill_file} -> ${stamped}"
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Install skills-oci
+        run: |
+          brew install salaboy/tap/skills-oci
+          installed=$(brew list --versions skills-oci | awk '{print $2}')
+          if [ "$installed" != "$SKILLS_OCI_VERSION" ]; then
+            echo "::error::Installed skills-oci $installed does not match pinned $SKILLS_OCI_VERSION"
+            exit 1
+          fi
+          skills-oci --help >/dev/null
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push skill to GHCR
+        env:
+          OWNER: ${{ github.repository_owner }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          owner_lc=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          versioned="ghcr.io/${owner_lc}/${SKILL}:${VERSION}"
+          latest="ghcr.io/${owner_lc}/${SKILL}:latest"
+          echo "Pushing $versioned"
+          skills-oci push --plain "$versioned" "./${SKILL}"
+          echo "Pushing $latest"
+          skills-oci push --plain "$latest" "./${SKILL}"
+
+      - name: Bump VERSION
+        id: bump
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          IFS=. read -r major minor patch <<< "$VERSION"
+          if ! [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ && "$patch" =~ ^[0-9]+$ ]]; then
+            echo "::error::VERSION '$VERSION' is not in MAJOR.MINOR.PATCH format"
+            exit 1
+          fi
+          new_version="${major}.${minor}.$((patch + 1))"
+          echo "$new_version" > "${SKILL}/VERSION"
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+          echo "Bumped ${SKILL} VERSION: $VERSION -> $new_version"
+
+      - name: Commit and push bumped VERSION
+        env:
+          PUBLISHED: ${{ steps.version.outputs.version }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${SKILL}/VERSION"
+          if git diff --cached --quiet; then
+            echo "No VERSION change to commit"
+            exit 0
+          fi
+          git commit -m "chore(${SKILL}): bump VERSION to ${NEW_VERSION} after publishing ${PUBLISHED}"
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push failed (attempt ${attempt}); rebasing on origin/${GITHUB_REF_NAME}"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          done
+          echo "::error::Failed to push bumped VERSION after 3 attempts"
+          exit 1
