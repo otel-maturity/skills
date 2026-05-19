@@ -1,7 +1,7 @@
 ---
 name: evaluate-otel-maturity
 version: 0.0.0-dev
-description: Evaluate a CNCF project's OpenTelemetry support maturity by inspecting telemetry data, documentation, and source code. Produces a structured per-dimension assessment using the OpenTelemetry Support Maturity Model. Use after install-cncf-project has telemetry flowing.
+description: Evaluate a CNCF project's OpenTelemetry support maturity by inspecting telemetry data, documentation, and source code. Orchestrates seven dimension skills and assembles a structured per-dimension assessment using the OpenTelemetry Support Maturity Model. Use after install-cncf-project has telemetry flowing.
 argument-hint: "<project-name> <version>"
 allowed-tools:
    - Bash
@@ -18,11 +18,9 @@ allowed-tools:
 
 # Evaluate OpenTelemetry Support Maturity
 
-You evaluate a CNCF project's OpenTelemetry support using the **OpenTelemetry Support Maturity Model for CNCF Projects**. The full model specification, including detailed dimension descriptions and the evaluation checklist, is in `maturity-model-spec.md` in this skill's directory. **Read it before starting any evaluation.**
+You evaluate a CNCF project's OpenTelemetry support using the **OpenTelemetry Support Maturity Model for CNCF Projects**. The full model specification is in `maturity-model-spec.md` in this skill's directory.
 
-Your evaluation must be thorough, evidence-based, and grounded in the actual telemetry data collected in the evaluation cluster. Always reference the latest stable OpenTelemetry semantic conventions when assessing attribute correctness.
-
-Report back the progress and any issues you encounter while installing the project.
+Your evaluation is orchestrated: you collect cross-cutting evidence, then invoke seven dimension skills in parallel, then assemble and present the final report.
 
 ## Context
 
@@ -41,97 +39,42 @@ The user provides two arguments:
 
 ## Skill version stamping
 
-Read the `version:` field from this file's own YAML frontmatter and use that exact string wherever this skill writes the **Skill version** field below. The CI workflow rewrites this field to the published version before packaging the OCI artifact, so at runtime it reflects the version users actually pulled.
+Read the `version:` field from this file's own YAML frontmatter and use that exact string wherever this skill writes the **Skill version** field. The CI workflow rewrites this field to the published version before packaging the OCI artifact.
 
 ## Before you start
 
-1. **Read the maturity model spec** — Read `maturity-model-spec.md` from this skill's directory. You need the full dimension definitions, level characteristics, and evaluation checklist questions.
+1. **Read the maturity model spec** — Skim `maturity-model-spec.md` from this skill's directory to understand the model philosophy and the 7 dimensions.
 2. **Read the research notes** — Read `.otel-eval/<project-name>/RESEARCH.md` for installation context.
 3. **Verify telemetry exists** — Check that the JSONL files have data:
    ```bash
    wc -l /tmp/otel-eval-<project-name>/*.jsonl
    ```
 
-## Evaluation process
+## Phase 1: Collect cross-cutting evidence
 
-### Phase 1: Collect evidence from telemetry
+Collect the evidence that spans multiple dimensions. Individual dimension skills will perform their own signal-specific analysis; your role here is to gather the shared context.
 
-For each signal, extract and document concrete evidence. Use `jq` to parse the JSONL files.
-
-#### Traces analysis
+### Telemetry overview
 
 ```bash
-# Resource attributes on trace data
-cat /tmp/otel-eval-<project-name>/traces.jsonl | jq -r '.resourceSpans[]? | .resource.attributes[]? | "\(.key): \(.value)"' | sort -u
+# Signal volumes
+wc -l /tmp/otel-eval-<project-name>/*.jsonl
 
-# Span names, kinds, and status
-cat /tmp/otel-eval-<project-name>/traces.jsonl | jq -r '.resourceSpans[]?.scopeSpans[]?.spans[]? | "\(.name) | kind=\(.kind) | status=\(.status.code // "UNSET")"' | sort | uniq -c | sort -rn
+# Resource attributes before enrichment — check collector logs
+kubectl logs -n opentelemetry -l app.kubernetes.io/instance=otel-collector --tail=100 2>/dev/null | head -200
 
-# Span attributes (first 50 unique keys)
-cat /tmp/otel-eval-<project-name>/traces.jsonl | jq -r '.resourceSpans[]?.scopeSpans[]?.spans[]?.attributes[]?.key' | sort -u | head -50
+# Native resource attributes (post-enrichment, from trace file)
+cat /tmp/otel-eval-<project-name>/traces.jsonl | \
+  jq -r '.resourceSpans[]? | .resource.attributes[]? | "\(.key): \(.value.stringValue // .value.intValue // .value.boolValue // "?")"' | \
+  sort -u
 
-# Scope (instrumentation library) info
-cat /tmp/otel-eval-<project-name>/traces.jsonl | jq -r '.resourceSpans[]?.scopeSpans[]?.scope | "\(.name // "unknown") v\(.version // "unknown")"' | sort -u
-
-# Check for W3C trace context propagation (look for parent span IDs)
-cat /tmp/otel-eval-<project-name>/traces.jsonl | jq -r '.resourceSpans[]?.scopeSpans[]?.spans[]? | select(.parentSpanId != "" and .parentSpanId != null) | .name' | head -10
-
-# Check span kind correctness for entry points
-cat /tmp/otel-eval-<project-name>/traces.jsonl | jq -r '.resourceSpans[]?.scopeSpans[]?.spans[]? | select(.parentSpanId == "" or .parentSpanId == null) | "\(.name) | kind=\(.kind)"' | sort -u
-
-# Schema URL if present
-cat /tmp/otel-eval-<project-name>/traces.jsonl | jq -r '.resourceSpans[]?.schemaUrl // empty' | sort -u
+# Compare with metric resource attributes to spot inconsistency
+cat /tmp/otel-eval-<project-name>/metrics.jsonl | \
+  jq -r '.resourceMetrics[]? | .resource.attributes[]? | "\(.key): \(.value.stringValue // .value.intValue // .value.boolValue // "?")"' | \
+  sort -u
 ```
 
-#### Metrics analysis
-
-```bash
-# Resource attributes on metrics data
-cat /tmp/otel-eval-<project-name>/metrics.jsonl | jq -r '.resourceMetrics[]? | .resource.attributes[]? | "\(.key): \(.value)"' | sort -u
-
-# Metric names and types
-cat /tmp/otel-eval-<project-name>/metrics.jsonl | jq -r '.resourceMetrics[]?.scopeMetrics[]?.metrics[]? | "\(.name) | \(if .sum then "sum" elif .gauge then "gauge" elif .histogram then "histogram" elif .exponentialHistogram then "exponentialHistogram" elif .summary then "summary" else "unknown" end)"' | sort -u
-
-# Metric attribute keys (first 50)
-cat /tmp/otel-eval-<project-name>/metrics.jsonl | jq -r '[.resourceMetrics[]?.scopeMetrics[]?.metrics[]? | (.sum.dataPoints[]?, .gauge.dataPoints[]?, .histogram.dataPoints[]?, .summary.dataPoints[]?) | .attributes[]?.key] | unique[]' | head -50
-
-# Scope info for metrics
-cat /tmp/otel-eval-<project-name>/metrics.jsonl | jq -r '.resourceMetrics[]?.scopeMetrics[]?.scope | "\(.name // "unknown") v\(.version // "unknown")"' | sort -u
-
-# Schema URL if present
-cat /tmp/otel-eval-<project-name>/metrics.jsonl | jq -r '.resourceMetrics[]?.schemaUrl // empty' | sort -u
-```
-
-#### Logs analysis
-
-```bash
-# Resource attributes on log data
-cat /tmp/otel-eval-<project-name>/logs.jsonl | jq -r '.resourceLogs[]? | .resource.attributes[]? | "\(.key): \(.value)"' | sort -u
-
-# Log severity levels
-cat /tmp/otel-eval-<project-name>/logs.jsonl | jq -r '.resourceLogs[]?.scopeLogs[]?.logRecords[]? | .severityText // "UNSET"' | sort | uniq -c | sort -rn
-
-# Check for trace context on logs (traceId and spanId present)
-cat /tmp/otel-eval-<project-name>/logs.jsonl | jq -r '.resourceLogs[]?.scopeLogs[]?.logRecords[]? | select(.traceId != "" and .traceId != null and .traceId != "00000000000000000000000000000000") | "has_trace_context"' | wc -l
-
-# Log body structure (first 5 records)
-cat /tmp/otel-eval-<project-name>/logs.jsonl | jq '.resourceLogs[]?.scopeLogs[]?.logRecords[]?.body' | head -20
-
-# Log attributes
-cat /tmp/otel-eval-<project-name>/logs.jsonl | jq -r '.resourceLogs[]?.scopeLogs[]?.logRecords[]?.attributes[]?.key' | sort -u | head -50
-
-# Schema URL if present
-cat /tmp/otel-eval-<project-name>/logs.jsonl | jq -r '.resourceLogs[]?.schemaUrl // empty' | sort -u
-```
-
-#### Collector debug logs (pre-enrichment view)
-
-```bash
-# Check collector logs for what arrives before k8sattributes processing
-kubectl logs -n opentelemetry -l app.kubernetes.io/instance=otel-collector --tail=100 | head -200
-```
-
-### Phase 2: Collect evidence from documentation and source
+## Phase 2: Collect documentation and source evidence
 
 Use web search and web fetch to check:
 
@@ -139,29 +82,42 @@ Use web search and web fetch to check:
 2. **Configuration reference** — Are `OTEL_*` env vars documented? Is OTLP the default?
 3. **Changelog / release notes** — Are telemetry changes documented? Any breaking changes communicated?
 4. **GitHub issues / PRs** — Any open issues about OTel support? Recent improvements?
-5. **Source code** (if needed) — How is instrumentation implemented? SDK-based or custom?
 
-### Phase 3: Evaluate each dimension
+Take notes on your findings — dimension skills will do their own targeted searches but your cross-cutting notes provide context.
 
-For each of the 7 dimensions, follow this process:
+## Phase 3: Run dimension skills in parallel
 
-1. **Review the dimension definition and checklist** from the maturity model spec
-2. **Gather all relevant evidence** (telemetry data, docs, source)
-3. **Answer the checklist questions** for each level, starting from Level 0 upward
-4. **Determine the level** — the highest level where the project substantially meets the characteristics
-5. **Document your reasoning** with specific evidence
+Invoke all seven dimension skills simultaneously using the Agent tool. Pass `<project-name>` and `<version>` to each.
 
-#### Critical evaluation principles
+Each skill reads telemetry directly from `/tmp/otel-eval-<project-name>/` and writes its result to `.otel-eval/<project-name>/dim-N-<name>.md`.
 
-- **Evaluate what the project emits natively.** Downstream collector enrichment (k8sattributes, transforms, parsing) does not count toward a higher maturity level unless the project explicitly documents that pipeline as part of its supported integration contract.
-- **Use the latest stable OpenTelemetry semantic conventions.** Check attributes against the current spec. Deprecated attributes like `http.method`, `http.status_code`, `http.url`, `http.target` should be flagged — the current conventions are `http.request.method`, `http.response.status_code`, `url.path`, `url.full`, etc.
-- **Absence of a signal is a data point.** If the project doesn't emit metrics via OTLP, that's relevant for Integration Surface and Multi-Signal dimensions.
-- **Be specific.** Quote actual attribute names, span names, metric names from the telemetry data. Don't generalize.
-- **Note what is native vs enriched.** Compare resource attributes in the telemetry files (post-k8sattributes) with what the collector debug logs show arriving (pre-enrichment).
+Run these in parallel:
 
-### Phase 4: Produce the evaluation report
+1. **dimension-1-integration-surface** `<project-name> <version>`
+2. **dimension-2-semantic-conventions** `<project-name> <version>`
+3. **dimension-3-resource-attributes** `<project-name> <version>`
+4. **dimension-4-trace-modeling** `<project-name> <version>`
+5. **dimension-5-multi-signal** `<project-name> <version>`
+6. **dimension-6-audience-signal-quality** `<project-name> <version>`
+7. **dimension-7-stability-change-management** `<project-name> <version>`
 
-Write the evaluation to `.otel-eval/<project-name>/EVALUATION.md` with this structure:
+Wait for all seven to complete before proceeding to Phase 4.
+
+## Phase 4: Assemble the final evaluation report
+
+Read each dimension result file and assemble `EVALUATION.md`:
+
+```bash
+cat .otel-eval/<project-name>/dim-1-integration-surface.md
+cat .otel-eval/<project-name>/dim-2-semantic-conventions.md
+cat .otel-eval/<project-name>/dim-3-resource-attributes.md
+cat .otel-eval/<project-name>/dim-4-trace-modeling.md
+cat .otel-eval/<project-name>/dim-5-multi-signal.md
+cat .otel-eval/<project-name>/dim-6-audience-signal-quality.md
+cat .otel-eval/<project-name>/dim-7-stability-change-management.md
+```
+
+Write `.otel-eval/<project-name>/EVALUATION.md` with this structure:
 
 ```markdown
 # OpenTelemetry Support Maturity Evaluation: <project-name>
@@ -203,159 +159,7 @@ Write the evaluation to `.otel-eval/<project-name>/EVALUATION.md` with this stru
 
 ## Dimension evaluations
 
-### 1. Integration Surface
-
-**Level: <0-3> — <level name>**
-
-#### Evidence
-<specific observations from telemetry, docs, and configuration>
-
-#### Checklist assessment
-<answers to the relevant checklist questions from the maturity model>
-
-#### Rationale
-<why this level was chosen, referencing specific characteristics from the model>
-
----
-
-### 2. Semantic Conventions
-
-**Level: <0-3> — <level name>**
-
-#### Evidence
-
-##### Trace attributes
-<list actual attribute names found, flag deprecated ones, note alignment with current semconv>
-
-##### Metric names and attributes
-<list actual metric names, note naming conventions used>
-
-##### Log attributes
-<list actual log attribute names, note schema used>
-
-#### Checklist assessment
-<answers to the relevant checklist questions>
-
-#### Rationale
-<why this level was chosen>
-
----
-
-### 3. Resource Attributes & Configuration
-
-**Level: <0-3> — <level name>**
-
-#### Evidence
-
-##### Native resource attributes
-<what the project emits at the source>
-
-##### OTEL_* environment variable support
-<tested behavior>
-
-##### Identity consistency across signals
-<comparison of service.name, service.version across traces, metrics, logs>
-
-#### Checklist assessment
-<answers to the relevant checklist questions>
-
-#### Rationale
-<why this level was chosen>
-
----
-
-### 4. Trace Modeling & Context Propagation
-
-**Level: <0-3> — <level name>**
-
-#### Evidence
-
-##### Span structure
-<root spans, parent-child relationships, span kinds>
-
-##### Context propagation
-<W3C Trace Context support, propagation to downstream services>
-
-##### Trace coherence
-<do traces tell a complete story?>
-
-#### Checklist assessment
-<answers to the relevant checklist questions>
-
-#### Rationale
-<why this level was chosen>
-
----
-
-### 5. Multi-Signal Observability
-
-**Level: <0-3> — <level name>**
-
-#### Evidence
-
-##### Signal availability
-<which signals are first-class, which are missing or secondary>
-
-##### Cross-signal correlation
-<trace context in logs, shared attributes between signals>
-
-##### Collection model
-<OTLP push vs Prometheus scrape vs log collection — per signal>
-
-#### Checklist assessment
-<answers to the relevant checklist questions>
-
-#### Rationale
-<why this level was chosen>
-
----
-
-### 6. Audience & Signal Quality
-
-**Level: <0-3> — <level name>**
-
-#### Evidence
-
-##### Span naming
-<are names logical operations or internal code paths?>
-
-##### Signal-to-noise ratio
-<volume of useful vs noisy telemetry>
-
-##### Default usability
-<can operators use telemetry without heavy customization?>
-
-#### Checklist assessment
-<answers to the relevant checklist questions>
-
-#### Rationale
-<why this level was chosen>
-
----
-
-### 7. Stability & Change Management
-
-**Level: <0-3> — <level name>**
-
-#### Evidence
-
-##### Documentation of telemetry behavior
-<is telemetry documented as a contract?>
-
-##### Change communication
-<how are telemetry changes communicated in release notes?>
-
-##### Schema URL presence
-<does the project set schemaUrl in OTLP exports?>
-
-##### Stability guarantees
-<any explicit stability commitments for telemetry?>
-
-#### Checklist assessment
-<answers to the relevant checklist questions>
-
-#### Rationale
-<why this level was chosen>
+<paste assembled content from all 7 dim-N-*.md files here>
 
 ---
 
@@ -378,7 +182,7 @@ Write the evaluation to `.otel-eval/<project-name>/EVALUATION.md` with this stru
 - Documentation and source code were reviewed for context beyond what telemetry data alone reveals
 ```
 
-### Phase 5: Present findings
+## Phase 5: Present findings
 
 After writing the evaluation, present a concise summary to the user with:
 1. The summary table
@@ -389,9 +193,8 @@ After writing the evaluation, present a concise summary to the user with:
 
 ## Important guidance
 
-- **Thoroughness matters.** This evaluation is meant to be a comprehensive, referenceable document. Don't skip dimensions or rush through evidence collection.
-- **Always use the latest semantic conventions.** The current stable HTTP semantic conventions use `http.request.method` (not `http.method`), `http.response.status_code` (not `http.status_code`), `url.path` (not `http.target`), `url.full` (not `http.url`). Flag any deprecated attributes explicitly.
+- **Thoroughness matters.** This evaluation is meant to be a comprehensive, referenceable document.
+- **Always use the latest semantic conventions.** Current HTTP: `http.request.method`, `http.response.status_code`, `url.path`, `url.full`. Flag any deprecated attributes explicitly.
+- **Distinguish project-native from collector-derived.** This is the most important analytical distinction. The model evaluates what the project supports natively.
 - **Quote actual data.** Every claim in the evaluation should be backed by a specific attribute name, metric name, span name, or documentation quote.
-- **Be fair and constructive.** The maturity model is descriptive, not judgmental. Lower maturity levels often reflect reasonable trade-offs. Acknowledge constraints (e.g., upstream Envoy dependencies) while still accurately assessing the current state.
-- **Distinguish project-native from collector-derived.** This is the most important analytical distinction. The model evaluates what the project supports natively, not what pipeline processing can achieve.
-- **Check documentation.** Telemetry data alone is not sufficient. Documentation, changelogs, and configuration guides provide essential context for the Stability & Change Management and Integration Surface dimensions.
+- **Be fair and constructive.** Lower maturity levels often reflect reasonable trade-offs. Acknowledge constraints while still accurately assessing the current state.
