@@ -170,7 +170,9 @@ Telemetry evolution is governed, intentional, and quality-aware.
 
 ## Output
 
-Write the result to `.otel-eval/<project-name>/dim-7-stability-change-management.md`:
+Write the result to `.otel-eval/<project-name>/dim-7-stability-change-management.md` using the `writeFile` tool. This path is **relative to your working directory `/app`**; do **not** write the report under `/tmp/otel-eval-<project-name>/` (that directory holds the input telemetry files, not the output report) or downstream pipeline steps will not find your result.
+
+Use this format:
 
 ```markdown
 ### 7. Stability & Change Management

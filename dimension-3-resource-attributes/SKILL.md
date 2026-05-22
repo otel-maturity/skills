@@ -191,7 +191,9 @@ Resource modeling and configuration are intentional, governed, and documented.
 
 ## Output
 
-Write the result to `.otel-eval/<project-name>/dim-3-resource-attributes.md`:
+Write the result to `.otel-eval/<project-name>/dim-3-resource-attributes.md` using the `writeFile` tool. This path is **relative to your working directory `/app`**; do **not** write the report under `/tmp/otel-eval-<project-name>/` (that directory holds the input telemetry files, not the output report) or downstream pipeline steps will not find your result.
+
+Use this format:
 
 ```markdown
 ### 3. Resource Attributes & Configuration

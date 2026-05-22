@@ -205,7 +205,9 @@ Trace modeling is actively refined, validated, and evolved.
 
 ## Output
 
-Write the result to `.otel-eval/<project-name>/dim-4-trace-modeling.md`:
+Write the result to `.otel-eval/<project-name>/dim-4-trace-modeling.md` using the `writeFile` tool. This path is **relative to your working directory `/app`**; do **not** write the report under `/tmp/otel-eval-<project-name>/` (that directory holds the input telemetry files, not the output report) or downstream pipeline steps will not find your result.
+
+Use this format:
 
 ```markdown
 ### 4. Trace Modeling & Context Propagation
